@@ -1,11 +1,12 @@
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.views import APIView
-from accounts.serializers import UserRegistrationSerializer, UserLoginSerializer, UserProfileSerializer, UserChangePasswordSerializer, UserPasswordResetSerializer, UserSendPasswordResetEmailSerializer
+from accounts.serializers import UserRegistrationSerializer, UserLoginSerializer, UserProfileSerializer, UserChangePasswordSerializer, UserPasswordResetSerializer, UserSendPasswordResetEmailSerializer, UserProfileUpdateSerializer, UserProfileUpdateNameSerializer
 from django.contrib.auth import authenticate ## used to authenticate email and password
 from accounts.renderer import UserRenderer ## Custom renderer class in renderer.py
 from rest_framework_simplejwt.tokens import RefreshToken ## directly copied to create manually custom tokens from website.
 from rest_framework.permissions import IsAuthenticated ## for authentication of user.
+from accounts.models import User,UserProfile
 
 def get_tokens_for_user(user):
     refresh = RefreshToken.for_user(user)
@@ -47,13 +48,69 @@ class UserLoginView(APIView):
         return Response(serializer.errors, status= status.HTTP_400_BAD_REQUEST )
     
 class UserProfileView(APIView):
-
     renderer_classes = [UserRenderer]
-    permission_classes= [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
-    def get(self,request,format=None):
-        serializer = UserProfileSerializer(request.user)
+    def get_user_profile(self, user):
+        try:
+            return user.profile
+        except UserProfile.DoesNotExist:
+            # If UserProfile does not exist, create a new one
+            return UserProfile.objects.create(user=user)
+
+    def get(self, request, format=None):
+        # Retrieve the user's profile or create a new one if it doesn't exist
+        user_profile = self.get_user_profile(request.user)
+        serializer = UserProfileSerializer(user_profile)
         return Response(serializer.data, status=status.HTTP_200_OK)
+    
+class UserProfileUpdateView(APIView):
+    renderer_classes = [UserRenderer]
+    permission_classes = [IsAuthenticated]
+
+    def get_user_profile(self, user):
+        try:
+            return user.profile
+        except UserProfile.DoesNotExist:
+            # If UserProfile does not exist, create a new one
+            return UserProfile.objects.create(user=user)
+
+    def put(self, request, format=None):
+        # Retrieve the user's profile or create a new one if it doesn't exist
+        user_profile = self.get_user_profile(request.user)
+        
+        # Use a different serializer for update
+        serializer = UserProfileUpdateSerializer(user_profile, data=request.data)
+        
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+class UserProfileUpdateNameView(APIView):
+    renderer_classes = [UserRenderer]
+    permission_classes = [IsAuthenticated]
+
+    def get_user_profile(self, user):
+        try:
+            return user.profile
+        except UserProfile.DoesNotExist:
+            # If UserProfile does not exist, create a new one
+            return UserProfile.objects.create(user=user)
+
+    def put(self, request, format=None):
+        # Retrieve the user's profile or create a new one if it doesn't exist
+        user_profile = self.get_user_profile(request.user)
+        
+        # Use a different serializer for update
+        serializer = UserProfileUpdateNameSerializer(user_profile, data=request.data)
+        
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 class UserChangePasswordView(APIView):
     renderer_classes = [UserRenderer]
@@ -80,6 +137,8 @@ class UserPasswordResetView(APIView):
         if serializer.is_valid(raise_exception=True):
             return Response({'msg':'Password reset sucessfully!'},status=status.HTTP_200_OK)
         return Response(serializer.error_messages,status=status.HTTP_400_BAD_REQUEST)
+    
+
 
 
 

@@ -1,11 +1,12 @@
 from xml.dom import ValidationErr
 from rest_framework import serializers
-from accounts.models import User
+from accounts.models import User, UserProfile
 ## importing for email password change
 from django.utils.encoding import smart_str, force_bytes, DjangoUnicodeDecodeError
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from accounts.utils import Util
+import os
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
 
@@ -13,7 +14,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['email','phone','password','password2','location']
+        fields = ['email','password','password2']
         extra_kwargs = {
             'password': {
                 'write_only': True
@@ -37,9 +38,32 @@ class UserLoginSerializer(serializers.ModelSerializer):
         fields = ['email','password']
 
 class UserProfileSerializer(serializers.ModelSerializer):
+    
+    email = serializers.EmailField(source='user.email')
+    name = serializers.CharField(max_length=255,allow_null=True)
+    phone = serializers.DecimalField(max_digits=10, decimal_places=0, allow_null=True)
+    location = serializers.CharField(max_length=255, allow_null=True)
+
     class Meta:
-        model = User
-        fields = ['email','phone','location']
+        model = UserProfile
+        fields = ['email', 'name','phone', 'location']
+
+class UserProfileUpdateSerializer(serializers.ModelSerializer):
+    
+    phone = serializers.DecimalField(max_digits=10, decimal_places=0, allow_null=True)
+    location = serializers.CharField(max_length=255, allow_null=True)
+
+    class Meta:
+        model = UserProfile
+        fields = ['phone', 'location']
+
+class UserProfileUpdateNameSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserProfile
+        fields = ['name']
+
+
+
 
 class UserChangePasswordSerializer(serializers.Serializer):
     password = serializers.CharField(max_length = 255, style = {'input': 'password'}, write_only=True)
@@ -79,6 +103,7 @@ class UserSendPasswordResetEmailSerializer(serializers.Serializer):
             print('Password Reset Token', token)
             link = 'http://127.0.0.1:8000/api/user/reset/'+uid+'/'+token
             print('Password reset link', link)
+            print (os.environ.get("EMAIL_USER")) 
             # Send mail
             body = 'Click following link to reset your password'+link
             data = {
@@ -123,3 +148,5 @@ class UserPasswordResetSerializer(serializers.Serializer):
         except DjangoUnicodeDecodeError as identifier:
             PasswordResetTokenGenerator().check_token(user,token)
             raise ValidationErr('token is not valid or manipulated')
+        
+
